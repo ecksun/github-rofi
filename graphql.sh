@@ -1,7 +1,7 @@
 #!/bin/bash
 
 token=$(<"$HOME/.config/github-rofi/token")
-username="ecksun"
+username=$(<"$HOME/.config/github-rofi/username")
 
 data=$(jq --arg query "$(cat orgpulls.graphql)" \
     --null-input \
