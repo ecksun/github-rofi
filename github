@@ -1,0 +1,36 @@
+#!/bin/bash
+
+pull_cache="$HOME/.cache/github-rofi/pulls.json"
+cache_meta="$HOME/.cache/github-rofi/metadata"
+
+cd "$(dirname "$(readlink "${BASH_SOURCE[0]}")")" || exit 1
+
+update_cache() {
+    mkdir -p "$(dirname "$pull_cache")"
+    ./graphql.sh > "$pull_cache.tmp"
+    mv "$pull_cache.tmp" "$pull_cache"
+    touch "$cache_meta"
+    sed -i '/^pull_time/d' "$cache_meta"
+    echo "pull_time $(date --rfc-3339=s)" >> "$cache_meta"
+}
+
+if [ ! -e "$pull_cache" ]; then
+    update_cache
+fi
+
+if [ -e "$cache_meta" ]; then
+    pull_time=$(awk '/pull_time/ { $1=""; print $0 }' "$cache_meta")
+    echo "$pull_time"
+fi
+
+old_cache="$(date --date "now - 10 min" --rfc-3339=s)"
+if [ -z "$pull_time" ] || [[ $old_cache > $pull_time ]]; then
+    update_cache &
+fi
+
+hit=$(jq --from-file pulls_to_names.jq --raw-output < "$pull_cache" | rofi -dmenu -theme Arc-Dark)
+if [ -z "$hit" ]; then
+    exit 0
+fi
+PR="${hit%%:*}"
+xdg-open "https://github.com/$PR"
