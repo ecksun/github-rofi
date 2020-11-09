@@ -28,7 +28,7 @@ if [ -z "$pull_time" ] || [[ $old_cache > $pull_time ]]; then
     update_cache &
 fi
 
-hit=$(jq --from-file pulls_to_names.jq --raw-output < "$pull_cache" | rofi -dmenu -theme Arc-Dark)
+hit=$(jq --from-file pulls_to_names.jq --raw-output < "$pull_cache" | rofi -dmenu -theme Arc-Dark -i)
 if [ -z "$hit" ]; then
     exit 0
 fi
