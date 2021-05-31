@@ -1,4 +1,3 @@
-.data.viewer.organizations.nodes[].repositories.nodes[]
-    | {name: .nameWithOwner, pull: .pullRequests.nodes[]}
-    | {name: (.name + "/pull/" + (.pull.number | tostring)), pull: .pull }
-    | (.name + ": " + .pull.title)
+.data.requests.nodes + .data.created.nodes + .data.mentions.nodes, .data.assigned.nodes
+    | sort_by(.createdAt) | reverse
+    | .[] | ((.repository.nameWithOwner + "/pull/" + (.number | tostring)) + ": " + .title)

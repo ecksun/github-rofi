@@ -3,7 +3,7 @@
 token=$(<"$HOME/.config/github-rofi/token")
 username=$(<"$HOME/.config/github-rofi/username")
 
-data=$(jq --arg query "$(cat orgpulls.graphql)" \
+data=$(jq --arg query "$(./orgpulls.graphql "$username")" \
     --null-input \
     '{ query: $query }')
 

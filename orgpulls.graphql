@@ -1,26 +1,29 @@
-{
-  viewer {
-    organizations(first: 10) {
-      nodes {
-        repositories(first: 100) {
-          pageInfo {
-            endCursor
-            hasNextPage
-          }
-          totalCount
-          nodes {
-            nameWithOwner
-            pullRequests(first: 100, states: [OPEN]) {
-              nodes {
-                number
-                url
-                state
-                title
-              }
-            }
-          }
+#!/bin/bash
+
+username=${1?:Argument missing: username}
+
+search() {
+    cat <<EOF
+  $1: search(query: "is:open is:pr $2 archived:false", type: ISSUE, first: 100) {
+    nodes {
+      ... on PullRequest {
+        number
+        url
+        state
+        title
+        createdAt
+        repository {
+          nameWithOwner
         }
       }
     }
   }
+EOF
 }
+
+echo '{'
+search requests "review-requested:$username"
+search created  "author:$username"
+search mentions "mentions:$username"
+search assigned "assigned:$username"
+echo '}'
