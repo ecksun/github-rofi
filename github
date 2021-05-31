@@ -28,8 +28,18 @@ if [ -z "$pull_time" ] || [[ $old_cache > $pull_time ]]; then
     update_cache
 fi
 
-hit=$(jq --from-file pulls_to_names.jq --raw-output < "$pull_cache" | rofi -dmenu -theme Arc-Dark -i)
+hit=$(
+    (
+        jq --from-file pulls_to_names.jq --raw-output < "$pull_cache" && \
+        echo "refresh"
+    ) | rofi -dmenu -theme Arc-Dark -i)
 if [ -z "$hit" ]; then
+    exit 0
+fi
+if [ "$hit" == "refresh" ]; then
+    notify-send --hint=string:synchronous:github-rofi github-rofi "Updating cache.."
+    update_cache
+    notify-send --hint=string:synchronous:github-rofi --expire-time=3000 github-rofi "Cache updated!"
     exit 0
 fi
 PR="${hit%%:*}"
