@@ -25,7 +25,7 @@ fi
 
 old_cache="$(date --date "now - 10 min" --rfc-3339=s)"
 if [ -z "$pull_time" ] || [[ $old_cache > $pull_time ]]; then
-    update_cache &
+    update_cache
 fi
 
 hit=$(jq --from-file pulls_to_names.jq --raw-output < "$pull_cache" | rofi -dmenu -theme Arc-Dark -i)
