@@ -6,12 +6,14 @@ cache_meta="$HOME/.cache/github-rofi/metadata"
 cd "$(dirname "$(readlink "${BASH_SOURCE[0]}")")" || exit 1
 
 update_cache() {
+    notify-send --hint=string:synchronous:github-rofi github-rofi "Updating cache.."
     mkdir -p "$(dirname "$pull_cache")"
     ./graphql.sh > "$pull_cache.tmp"
     mv "$pull_cache.tmp" "$pull_cache"
     touch "$cache_meta"
     sed -i '/^pull_time/d' "$cache_meta"
     echo "pull_time $(date --rfc-3339=s)" >> "$cache_meta"
+    notify-send --hint=string:synchronous:github-rofi --expire-time=3000 github-rofi "Cache updated!"
 }
 
 if [ ! -e "$pull_cache" ]; then
@@ -37,9 +39,7 @@ if [ -z "$hit" ]; then
     exit 0
 fi
 if [ "$hit" == "refresh" ]; then
-    notify-send --hint=string:synchronous:github-rofi github-rofi "Updating cache.."
     update_cache
-    notify-send --hint=string:synchronous:github-rofi --expire-time=3000 github-rofi "Cache updated!"
     exit 0
 fi
 PR="${hit%%:*}"
