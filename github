@@ -34,7 +34,7 @@ hit=$(
     (
         jq --from-file pulls_to_names.jq --raw-output < "$pull_cache" && \
         echo "refresh"
-    ) | rofi -dmenu -theme Arc-Dark -i)
+    ) | rofi -width 70 -dmenu -theme Arc-Dark -i)
 if [ -z "$hit" ]; then
     exit 0
 fi
