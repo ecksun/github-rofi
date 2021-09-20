@@ -1,6 +1,7 @@
 #!/bin/bash
 
 username=${1?:Argument missing: username}
+config_dir="$HOME/.config/github-pulls"
 
 search() {
     cat <<EOF
@@ -21,9 +22,17 @@ search() {
 EOF
 }
 
+custom_searches() {
+    if [ ! -f "$config_dir/search" ]; then
+        return
+    fi
+    search custom1 "$(cat "$config_dir/search")"
+}
+
 echo '{'
 search requests "review-requested:$username"
 search created  "author:$username"
 search mentions "mentions:$username"
 search assigned "assigned:$username"
+custom_searches
 echo '}'
