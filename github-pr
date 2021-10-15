@@ -1,0 +1,98 @@
+#!/bin/bash
+
+pull_cache="$HOME/.cache/github-rofi/pulls.json"
+
+cd "$(dirname "$(readlink "${BASH_SOURCE[0]}")")" || exit 1
+./update_cache.sh
+
+rows() {
+    jq --from-file pulls_to_branches.jq --raw-output < "$pull_cache" | \
+    while read -r REPO PR BRANCH TITLE; do
+        printf "%-26s [%4d] %-26s %s\n" "$REPO" "$PR" "$BRANCH" "$TITLE"
+    done
+}
+
+hit=$(
+    (
+        rows && \
+        echo "refresh"
+    ) | rofi -width 70 -dmenu -theme Arc-Dark -i)
+if [ -z "$hit" ]; then
+    exit 0
+fi
+if [ "$hit" == "refresh" ]; then
+    ./update_cache.sh --force
+    exit 0
+fi
+
+read -r REPO BRANCH TITLE <<<"${hit/\[????\]}"
+
+get_folder() {
+    repo="$1"
+
+    repo="${repo/AiflooAB\//noomi/}"
+
+    echo "$HOME/code/$repo"
+}
+
+get_worktree() {
+    repo="$1"
+    branch="$2"
+
+    repo_dir="$(get_folder "$repo")"
+    worktree="${branch//\//-}"
+
+    echo "$repo_dir.$worktree"
+}
+
+# echo "$REPO"
+# echo "$BRANCH"
+# echo "$TITLE"
+# echo
+
+repo_dir="$(get_folder "$REPO")"
+
+initfile=$(mktemp --suffix github-pr-init)
+trap 'rm "$initfile"' EXIT
+
+cat << EOF > "$initfile"
+#!/bin/bash
+set -euo pipefail
+set -x
+trap 'exec "$BASH"' EXIT 
+EOF
+chmod +x "$initfile"
+
+if ! [ -d "$repo_dir" ]; then
+    cat << EOF >> "$initfile"
+# Can't find repository, cloning git@github.com/$REPO into $repo_dir
+git clone "git@github.com/$REPO" "$repo_dir"
+EOF
+fi
+
+worktree_dir="$(get_worktree "$REPO" "$BRANCH")"
+
+if ! git -C "$repo_dir" show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
+    cat << EOF >> "$initfile"
+# Remote branch doesn't exist, fetching..
+git -C "$repo_dir" fetch origin
+EOF
+fi
+
+if ! [ -d "$worktree_dir" ]; then
+    cat << EOF >> "$initfile"
+# No worktree exists, creating it..
+if git -C "$repo_dir" rev-parse --quiet --verify "$BRANCH" > /dev/null; then
+  git -C "$repo_dir" worktree add --guess-remote "$worktree_dir" "$BRANCH"
+else
+  git -C "$repo_dir" worktree add --track -b "$BRANCH" "$worktree_dir" "origin/$BRANCH"
+fi
+EOF
+fi
+
+cat << EOF >> "$initfile"
+cd "$worktree_dir"
+git -C "$repo_dir" fetch origin "$BRANCH"
+EOF
+
+x-terminal-emulator --workdir "$worktree_dir" -e "$initfile"

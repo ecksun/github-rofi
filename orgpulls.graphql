@@ -16,6 +16,9 @@ search() {
         repository {
           nameWithOwner
         }
+        headRef {
+          name
+        }
       }
     }
   }
