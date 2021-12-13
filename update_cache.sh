@@ -30,7 +30,7 @@ if [ -e "$cache_meta" ]; then
     pull_time=$(awk '/pull_time/ { $1=""; print $0 }' "$cache_meta")
 fi
 
-outdated_cache="$(date --date "now - 120 min" --rfc-3339=s)"
+outdated_cache="$(date --date "now - 180 min" --rfc-3339=s)"
 if [ -z "$pull_time" ] || [[ $outdated_cache > $pull_time ]]; then
     echo >&2 "Cache is outdated, updating now"
     update_cache
