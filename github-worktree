@@ -7,9 +7,7 @@ cd "$(dirname "$(readlink "${BASH_SOURCE[0]}")")" || exit 1
 
 rows() {
     jq --from-file pulls_to_branches.jq --raw-output < "$pull_cache" | \
-    while read -r repo pr branch title; do
-        printf "%-26s [%4d] %-26s %s\n" "$repo" "$pr" "$branch" "$title"
-    done
+    column -t --separator $'\t'
 }
 
 hit=$(
@@ -25,9 +23,7 @@ if [ "$hit" == "refresh" ]; then
     exit 0
 fi
 
-set -x
-
-[[ $hit =~ ([^/]+)/([^[:space:]]+)[[:space:]]+\[([0-9]+)\][[:space:]]+([^[:space:]]+) ]]
+[[ $hit =~ ([^/]+)/([^[:space:]]+)[[:space:]]+([0-9]+)[[:space:]]+([^[:space:]]+) ]]
 
 owner="${BASH_REMATCH[1]}"
 repo="${BASH_REMATCH[2]}"
