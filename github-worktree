@@ -25,27 +25,35 @@ if [ "$hit" == "refresh" ]; then
     exit 0
 fi
 
-read -r repo branch title <<<"${hit/\[????\]}"
+set -x
+
+[[ $hit =~ ([^/]+)/([^[:space:]]+)[[:space:]]+\[([0-9]+)\][[:space:]]+([^[:space:]]+) ]]
+
+owner="${BASH_REMATCH[1]}"
+repo="${BASH_REMATCH[2]}"
+# pr="${BASH_REMATCH[3]}"
+branch="${BASH_REMATCH[4]}"
+
 
 get_folder() {
-    repo="$1"
+    owner="$1"
+    repo="$2"
 
-    repo="${repo/AiflooAB\//noomi/}"
-
-    echo "$HOME/code/$repo"
+    echo "$HOME/code/$owner/$repo"
 }
 
 get_worktree() {
-    repo="$1"
-    branch="$2"
+    owner="$1"
+    repo="$2"
+    branch="$3"
 
-    repo_dir="$(get_folder "$repo")"
+    repo_dir="$(get_folder "$owner" "$repo")"
     worktree="${branch//\//-}"
 
     echo "$repo_dir.$worktree"
 }
 
-repo_dir="$(get_folder "$repo")"
+repo_dir="$(get_folder "$owner" "$repo")"
 
 initfile=$(mktemp --suffix github-pr-init)
 trap 'rm "$initfile"' EXIT
@@ -61,11 +69,11 @@ chmod +x "$initfile"
 if ! [ -d "$repo_dir" ]; then
     cat << EOF >> "$initfile"
 # Can't find repository, cloning git@github.com/$repo into $repo_dir
-git clone "git@github.com/$repo" "$repo_dir"
+git clone "git@github.com:$owner/$repo" "$repo_dir"
 EOF
 fi
 
-worktree_dir="$(get_worktree "$repo" "$branch")"
+worktree_dir="$(get_worktree "$owner" "$repo" "$branch")"
 
 if ! git -C "$repo_dir" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
     cat << EOF >> "$initfile"
