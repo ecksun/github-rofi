@@ -45,10 +45,6 @@ get_worktree() {
     echo "$repo_dir.$worktree"
 }
 
-# echo "$REPO"
-# echo "$BRANCH"
-# echo "$TITLE"
-# echo
 
 repo_dir="$(get_folder "$REPO")"
 
