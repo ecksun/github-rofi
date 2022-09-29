@@ -3,7 +3,7 @@
 pull_cache="$HOME/.cache/github-rofi/github-pulls.json"
 
 cd "$(dirname "$(readlink "${BASH_SOURCE[0]}")")" || exit 1
-./update_cache.sh
+./update_cache.sh github
 
 rows() {
     jq --from-file pulls_to_branches.jq --raw-output < "$pull_cache" | \
@@ -19,7 +19,7 @@ if [ -z "$hit" ]; then
     exit 0
 fi
 if [ "$hit" == "refresh" ]; then
-    ./update_cache.sh --force
+    ./update_cache.sh github --force
     exit 0
 fi
 

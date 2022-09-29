@@ -1,22 +1,24 @@
 #!/bin/bash
 
-pull_cache="$HOME/.cache/github-rofi/pulls.json"
-cache_meta="$HOME/.cache/github-rofi/metadata"
+forge="$1"
+
+pull_cache="$HOME/.cache/github-rofi/$forge-pulls.json"
+cache_meta="$HOME/.cache/github-rofi/$forge-metadata"
 
 cd "$(dirname "$(readlink "${BASH_SOURCE[0]}")")" || exit 1
 
 update_cache() {
-    notify-send --hint=string:synchronous:github-rofi github-rofi "Updating cache.."
+    notify-send --hint="string:synchronous:$forge-rofi" "$forge-rofi" "Updating cache for $forge.."
     mkdir -p "$(dirname "$pull_cache")"
-    ./graphql.sh > "$pull_cache.tmp"
+    "./$forge-fetch.sh" > "$pull_cache.tmp"
     mv "$pull_cache.tmp" "$pull_cache"
     touch "$cache_meta"
     sed -i '/^pull_time/d' "$cache_meta"
     echo "pull_time $(date --rfc-3339=s)" >> "$cache_meta"
-    notify-send --hint=string:synchronous:github-rofi --expire-time=3000 github-rofi "Cache updated!"
+    notify-send --hint="string:synchronous:$forge-rofi" --expire-time=3000 "$forge-rofi" "Cache updated for $forge!"
 }
 
-if [ "$1" == "--force" ]; then
+if [ "$2" == "--force" ]; then
     update_cache
     exit 0
 fi
