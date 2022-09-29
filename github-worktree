@@ -34,7 +34,6 @@ repo="${BASH_REMATCH[2]}"
 # pr="${BASH_REMATCH[3]}"
 branch="${BASH_REMATCH[4]}"
 
-
 get_folder() {
     owner="$1"
     repo="$2"
@@ -60,15 +59,15 @@ trap 'rm "$initfile"' EXIT
 
 cat << EOF > "$initfile"
 #!/bin/bash
+( # run all git setup in a subshell to be able to exit on error
 set -euo pipefail
-set -x
-trap 'exec "$BASH"' EXIT 
 EOF
 chmod +x "$initfile"
 
 if ! [ -d "$repo_dir" ]; then
     cat << EOF >> "$initfile"
 # Can't find repository, cloning git@github.com/$repo into $repo_dir
+echo + git clone "git@github.com:$owner/$repo" "$repo_dir"
 git clone "git@github.com:$owner/$repo" "$repo_dir"
 EOF
 fi
@@ -78,6 +77,7 @@ worktree_dir="$(get_worktree "$owner" "$repo" "$branch")"
 if ! git -C "$repo_dir" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
     cat << EOF >> "$initfile"
 # Remote branch doesn't exist, fetching..
+echo + git -C "$repo_dir" fetch origin
 git -C "$repo_dir" fetch origin
 EOF
 fi
@@ -86,16 +86,28 @@ if ! [ -d "$worktree_dir" ]; then
     cat << EOF >> "$initfile"
 # No worktree exists, creating it..
 if git -C "$repo_dir" rev-parse --quiet --verify "$branch" > /dev/null; then
+  echo + git -C "$repo_dir" worktree add --guess-remote "$worktree_dir" "$branch"
   git -C "$repo_dir" worktree add --guess-remote "$worktree_dir" "$branch"
 else
+  echo + git -C "$repo_dir" worktree add --track -b "$branch" "$worktree_dir" "origin/$branch"
   git -C "$repo_dir" worktree add --track -b "$branch" "$worktree_dir" "origin/$branch"
 fi
 EOF
 fi
 
 cat << EOF >> "$initfile"
-cd "$worktree_dir"
+echo + git -C "$repo_dir" fetch origin "$branch"
 git -C "$repo_dir" fetch origin "$branch"
+)
+
+# load files normally loaded without --rcfile
+. /etc/bash.bashrc
+. ~/.bashrc
+if [ -d "$worktree_dir" ]; then
+    cd "$worktree_dir"
+else
+    cd "$repo_dir"
+fi
 EOF
 
-x-terminal-emulator --workdir "$worktree_dir" -e "$initfile"
+kitty bash --rcfile "$initfile"
