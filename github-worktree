@@ -7,8 +7,8 @@ cd "$(dirname "$(readlink "${BASH_SOURCE[0]}")")" || exit 1
 
 rows() {
     jq --from-file pulls_to_branches.jq --raw-output < "$pull_cache" | \
-    while read -r REPO PR BRANCH TITLE; do
-        printf "%-26s [%4d] %-26s %s\n" "$REPO" "$PR" "$BRANCH" "$TITLE"
+    while read -r repo pr branch title; do
+        printf "%-26s [%4d] %-26s %s\n" "$repo" "$pr" "$branch" "$title"
     done
 }
 
@@ -25,7 +25,7 @@ if [ "$hit" == "refresh" ]; then
     exit 0
 fi
 
-read -r REPO BRANCH TITLE <<<"${hit/\[????\]}"
+read -r repo branch title <<<"${hit/\[????\]}"
 
 get_folder() {
     repo="$1"
@@ -45,8 +45,7 @@ get_worktree() {
     echo "$repo_dir.$worktree"
 }
 
-
-repo_dir="$(get_folder "$REPO")"
+repo_dir="$(get_folder "$repo")"
 
 initfile=$(mktemp --suffix github-pr-init)
 trap 'rm "$initfile"' EXIT
@@ -61,14 +60,14 @@ chmod +x "$initfile"
 
 if ! [ -d "$repo_dir" ]; then
     cat << EOF >> "$initfile"
-# Can't find repository, cloning git@github.com/$REPO into $repo_dir
-git clone "git@github.com/$REPO" "$repo_dir"
+# Can't find repository, cloning git@github.com/$repo into $repo_dir
+git clone "git@github.com/$repo" "$repo_dir"
 EOF
 fi
 
-worktree_dir="$(get_worktree "$REPO" "$BRANCH")"
+worktree_dir="$(get_worktree "$repo" "$branch")"
 
-if ! git -C "$repo_dir" show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
+if ! git -C "$repo_dir" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
     cat << EOF >> "$initfile"
 # Remote branch doesn't exist, fetching..
 git -C "$repo_dir" fetch origin
@@ -78,17 +77,17 @@ fi
 if ! [ -d "$worktree_dir" ]; then
     cat << EOF >> "$initfile"
 # No worktree exists, creating it..
-if git -C "$repo_dir" rev-parse --quiet --verify "$BRANCH" > /dev/null; then
-  git -C "$repo_dir" worktree add --guess-remote "$worktree_dir" "$BRANCH"
+if git -C "$repo_dir" rev-parse --quiet --verify "$branch" > /dev/null; then
+  git -C "$repo_dir" worktree add --guess-remote "$worktree_dir" "$branch"
 else
-  git -C "$repo_dir" worktree add --track -b "$BRANCH" "$worktree_dir" "origin/$BRANCH"
+  git -C "$repo_dir" worktree add --track -b "$branch" "$worktree_dir" "origin/$branch"
 fi
 EOF
 fi
 
 cat << EOF >> "$initfile"
 cd "$worktree_dir"
-git -C "$repo_dir" fetch origin "$BRANCH"
+git -C "$repo_dir" fetch origin "$branch"
 EOF
 
 x-terminal-emulator --workdir "$worktree_dir" -e "$initfile"
