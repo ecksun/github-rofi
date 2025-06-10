@@ -68,7 +68,9 @@ func run(forge string) error {
 	for _, res := range nodes {
 		pr := fmt.Sprintf("%s#%d", res.Repository.NameWithOwner, res.Number)
 		fmt.Printf("%-40s %-50s [%s]", pr, res.Title, res.HeadRef.Name)
-		fmt.Printf("\000info\x1f%s\n", res.Url)
+		fmt.Printf("\000info\x1f%s", res.Url)
+		fmt.Print("\x1fmeta\x1fgithub")
+		fmt.Println()
 	}
 	fmt.Println("refresh")
 
