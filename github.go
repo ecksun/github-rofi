@@ -86,10 +86,14 @@ func GithubCacheOrFetch() (*githubResult, error) {
 			// TODO: Just delete file and continue
 			return nil, fmt.Errorf("failed to parse cache file: %w", err)
 		}
-		fmt.Println("Read data from cache successfully")
+		fmt.Fprintf(os.Stderr, "Read data from cache successfully\n")
 		return &result, nil
 	}
+	return GithubFetch()
+}
 
+func GithubFetch() (*githubResult, error) {
+	forge := "github"
 	tokenPath := path.Join(configDir(), forge, "token")
 	rawToken, err := os.ReadFile(tokenPath)
 	if err != nil {
@@ -142,8 +146,6 @@ func GithubCacheOrFetch() (*githubResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
-
-	fmt.Printf("body = %+v\n", string(body))
 
 	var result githubResult
 	if err := json.Unmarshal(body, &result); err != nil {

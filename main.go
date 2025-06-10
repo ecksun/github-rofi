@@ -6,17 +6,45 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"regexp"
-	"strings"
-	"text/tabwriter"
 )
 
 func main() {
-	forge := "github"
-	err := run(forge)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: %s\n", forge, err)
-		os.Exit(1)
+
+	fmt.Fprintf(os.Stderr, "ROFI_RETV=%s\n", os.Getenv("ROFI_RETV"))
+
+	switch os.Getenv("ROFI_RETV") {
+	case "": // Called directly
+		cmd := exec.Command("rofi", "-show", "fb", "-modes", "fb: go run ./", "-width", "70", "-theme", "Arc-Dark", "-i")
+		if err := cmd.Start(); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to start rofi subprocess: %+v", err)
+			os.Exit(1)
+		}
+		if err := cmd.Wait(); err != nil {
+			fmt.Fprintf(os.Stderr, "rofi failed: %+v", err)
+			os.Exit(1)
+		}
+	case "0": // Rofi: Initial call of script.
+		forge := "github"
+		err := run(forge)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %s\n", forge, err)
+			os.Exit(1)
+		}
+	case "1": // Rofi: Selected an entry.
+		if os.Args[1] == "refresh" {
+			if _, err := GithubFetch(); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to refresh github pull requests: %+v", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		}
+		cmd := exec.Command("xdg-open", os.Getenv("ROFI_INFO"))
+		if err := cmd.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "failed top run xdg-open: %+v", err)
+			os.Exit(1)
+		}
+	case "2": // Rofi: Selected a custom entry.
+	case "3": // Rofi: Deleted an entry.
 	}
 }
 
@@ -30,23 +58,7 @@ func run(forge string) error {
 		fmt.Fprintf(os.Stderr, "Failed to write cache (but will continue): %+v", err)
 	}
 
-	cmd := exec.Command("rofi", "-width", "70", "-dmenu", "-theme", "Arc-Dark", "-i")
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("failed to get stdin for rofi: %w", err)
-	}
-	var out strings.Builder
-	cmd.Stdout = &out
-
-	defer func() {
-		_ = stdin.Close()
-	}()
-
-	if err = cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start rofi subprocess: %w", err)
-	}
-
-	tw := tabwriter.NewWriter(stdin, 2, 2, 2, ' ', 0)
+	fmt.Println("\000prompt\x1fGithub PR")
 
 	nodes := []githubResultNode{}
 	nodes = append(nodes, result.Data.Requests.Nodes...)
@@ -54,44 +66,11 @@ func run(forge string) error {
 	nodes = append(nodes, result.Data.Mentions.Nodes...)
 	nodes = append(nodes, result.Data.Assigned.Nodes...)
 	for _, res := range nodes {
-		// TODO: Reorder to this order:
-		// fmt.Fprintf(tw, "%s\t%s\t#%d\t%s\n", res.Repository.NameWithOwner, res.HeadRef.Name, res.Number, res.Title)
-		_, err := fmt.Fprintf(tw, "%s\t%d\t%s\t%s\n", res.Repository.NameWithOwner, res.Number, res.HeadRef.Name, res.Title)
-		if err != nil {
-			return fmt.Errorf("failed to write to rofi pipe: %w", err)
-		}
+		pr := fmt.Sprintf("%s#%d", res.Repository.NameWithOwner, res.Number)
+		fmt.Printf("%-40s %-50s [%s]", pr, res.Title, res.HeadRef.Name)
+		fmt.Printf("\000info\x1f%s\n", res.Url)
 	}
-	if err := tw.Flush(); err != nil {
-		return fmt.Errorf("failed to flush pipe to rofi: %w", err)
-	}
-	if _, err := stdin.Write([]byte("refresh\n")); err != nil {
-		return fmt.Errorf("failed to write to rofi pipe: %w", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("rofi failed: %w", err)
-	}
-
-	res := out.String()
-	if res == "refresh" {
-		// TODO
-		os.Exit(0)
-	}
-	re := regexp.MustCompile(`([^/]+)/([^[:space:]]+)[[:space:]]+([0-9]+)[[:space:]]+([^[:space:]]+)`)
-	matched := re.FindStringSubmatch(res)
-	if matched == nil {
-		// They aborted rofi, by for example pressing ESC
-		return nil
-	}
-	owner := matched[1]
-	repo := matched[2]
-	pr := matched[3]
-	// branch := matched[4]
-
-	cmd = exec.Command("xdg-open", fmt.Sprintf("https://github.com/%s/%s/pull/%s", owner, repo, pr))
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed top run xdg-open: %w", err)
-	}
+	fmt.Println("refresh")
 
 	return nil
 }
