@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+var forges = []forge{GithubForge{}, GitlabForge{}}
+
 func main() {
 	switch os.Getenv("ROFI_RETV") {
 	case "": // Called directly
@@ -24,18 +26,14 @@ func main() {
 			os.Exit(1)
 		}
 	case "0": // Rofi: Initial call of script.
-		forge := GithubForge{}
-		err := run(forge)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %s\n", forge.name(), err)
-			os.Exit(1)
-		}
+		list()
 	case "1": // Rofi: Selected an entry.
 		if os.Args[1] == "refresh" {
-			forge := GithubForge{}
-			if err := forge.refresh(); err != nil {
-				fmt.Fprintf(os.Stderr, "failed to refresh github pull requests: %+v", err)
-				os.Exit(1)
+			for _, forge := range forges {
+				if err := forge.refresh(); err != nil {
+					fmt.Fprintf(os.Stderr, "failed to refresh %s changesets: %+v", forge.name(), err)
+					os.Exit(1)
+				}
 			}
 			os.Exit(0)
 		}
@@ -55,18 +53,17 @@ type forge interface {
 	refresh() error
 }
 
-func run(forge forge) error {
+func list() {
 	fmt.Println("\000prompt\x1fGitforge changesets")
 
-	err := forge.list()
-	if err != nil {
-		fmt.Println("refresh")
-		return fmt.Errorf("failed to get %s PRs: %w", forge.name(), err)
+	for _, forge := range forges {
+		err := forge.list()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to get %s changesets: %v", forge.name(), err)
+		}
 	}
 
 	fmt.Println("refresh")
-
-	return nil
 }
 
 func cachePath(forge string) string {
