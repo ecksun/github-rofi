@@ -8,10 +8,12 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
-var forges = []forge{GithubForge{}, GitlabForge{}}
+var forges = []forge{GitlabForge{}, GithubForge{}}
 
 func main() {
 	switch os.Getenv("ROFI_RETV") {
@@ -26,14 +28,37 @@ func main() {
 			os.Exit(1)
 		}
 	case "0": // Rofi: Initial call of script.
-		list()
-	case "1": // Rofi: Selected an entry.
-		if os.Args[1] == "refresh" {
-			for _, forge := range forges {
+		var wg = sync.WaitGroup{}
+		for _, forge := range forges {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if !cacheNeedsRefresh(forge.name()) {
+					return
+				}
 				if err := forge.refresh(); err != nil {
 					fmt.Fprintf(os.Stderr, "failed to refresh %s changesets: %+v", forge.name(), err)
-					os.Exit(1)
 				}
+			}()
+		}
+		printList()
+	case "1": // Rofi: Selected an entry.
+		if os.Args[1] == "refresh" {
+			var wg = sync.WaitGroup{}
+			failed := atomic.Bool{}
+			for _, forge := range forges {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					if err := forge.refresh(); err != nil {
+						fmt.Fprintf(os.Stderr, "failed to refresh %s changesets: %+v", forge.name(), err)
+						failed.Store(true)
+					}
+				}()
+			}
+			wg.Wait()
+			if failed.Load() {
+				os.Exit(1)
 			}
 			os.Exit(0)
 		}
@@ -53,7 +78,7 @@ type forge interface {
 	refresh() error
 }
 
-func list() {
+func printList() {
 	fmt.Println("\000prompt\x1fGitforge changesets")
 
 	for _, forge := range forges {
@@ -110,6 +135,18 @@ func readCache(forge string) ([]byte, error) {
 		return rawCache, nil
 	}
 	return []byte{}, nil
+}
+
+func cacheNeedsRefresh(forge string) bool {
+	cacheFile := cachePath(forge)
+	fileinfo, err := os.Stat(cacheFile)
+	if err != nil {
+		return true
+	}
+	if fileinfo.ModTime().Add(180 * time.Minute).After(time.Now()) {
+		return false
+	}
+	return true
 }
 
 func configDir() string {
