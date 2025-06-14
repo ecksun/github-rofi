@@ -9,9 +9,6 @@ import (
 )
 
 func main() {
-
-	fmt.Fprintf(os.Stderr, "ROFI_RETV=%s\n", os.Getenv("ROFI_RETV"))
-
 	switch os.Getenv("ROFI_RETV") {
 	case "": // Called directly
 		cmd := exec.Command("rofi", "-show", "fb", "-modes", "fb: "+os.Args[0], "-width", "70", "-theme", "Arc-Dark", "-i")
