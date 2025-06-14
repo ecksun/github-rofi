@@ -24,15 +24,16 @@ func main() {
 			os.Exit(1)
 		}
 	case "0": // Rofi: Initial call of script.
-		forge := "github"
+		forge := GithubForge{}
 		err := run(forge)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %s\n", forge, err)
+			fmt.Fprintf(os.Stderr, "%s: %s\n", forge.name(), err)
 			os.Exit(1)
 		}
 	case "1": // Rofi: Selected an entry.
 		if os.Args[1] == "refresh" {
-			if _, err := GithubFetch(); err != nil {
+			forge := GithubForge{}
+			if err := forge.refresh(); err != nil {
 				fmt.Fprintf(os.Stderr, "failed to refresh github pull requests: %+v", err)
 				os.Exit(1)
 			}
@@ -48,30 +49,21 @@ func main() {
 	}
 }
 
-func run(forge string) error {
-	result, err := GithubCacheOrFetch()
+type forge interface {
+	name() string
+	list() error
+	refresh() error
+}
+
+func run(forge forge) error {
+	fmt.Println("\000prompt\x1fGitforge changesets")
+
+	err := forge.list()
 	if err != nil {
-		return fmt.Errorf("failed to get github PRs: %w", err)
+		fmt.Println("refresh")
+		return fmt.Errorf("failed to get %s PRs: %w", forge.name(), err)
 	}
 
-	if err := writeCache(forge, result); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to write cache (but will continue): %+v", err)
-	}
-
-	fmt.Println("\000prompt\x1fGithub PR")
-
-	nodes := []githubResultNode{}
-	nodes = append(nodes, result.Data.Requests.Nodes...)
-	nodes = append(nodes, result.Data.Created.Nodes...)
-	nodes = append(nodes, result.Data.Mentions.Nodes...)
-	nodes = append(nodes, result.Data.Assigned.Nodes...)
-	for _, res := range nodes {
-		pr := fmt.Sprintf("%s#%d", res.Repository.NameWithOwner, res.Number)
-		fmt.Printf("%-40s %-50s [%s]", pr, res.Title, res.HeadRef.Name)
-		fmt.Printf("\000info\x1f%s", res.Url)
-		fmt.Print("\x1fmeta\x1fgithub")
-		fmt.Println()
-	}
 	fmt.Println("refresh")
 
 	return nil

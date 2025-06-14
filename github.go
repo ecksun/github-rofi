@@ -67,6 +67,47 @@ func graphQlSearch(name string, query string) string {
 `, name, query)
 }
 
+type GithubForge struct{}
+
+func (f GithubForge) name() string {
+	return "github"
+}
+
+func (f GithubForge) list() error {
+	res, err := GithubCacheOrFetch()
+	if err != nil {
+		return fmt.Errorf("listing github PRs failed: %w", err)
+	}
+
+	if err := writeCache(f.name(), res); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to write cache (but will continue): %+v", err)
+	}
+
+	nodes := []githubResultNode{}
+	nodes = append(nodes, res.Data.Requests.Nodes...)
+	nodes = append(nodes, res.Data.Created.Nodes...)
+	nodes = append(nodes, res.Data.Mentions.Nodes...)
+	nodes = append(nodes, res.Data.Assigned.Nodes...)
+	for _, node := range nodes {
+		pr := fmt.Sprintf("%s#%d", node.Repository.NameWithOwner, node.Number)
+		fmt.Printf("%-40s %-50s [%s]", pr, node.Title, node.HeadRef.Name)
+		fmt.Printf("\000info\x1f%s", node.Url)
+		fmt.Print("\x1fmeta\x1fgithub")
+		fmt.Println()
+	}
+
+	return nil
+}
+
+func (f GithubForge) refresh() error {
+	res, err := GithubFetch()
+	if err := writeCache(f.name(), res); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to write cache (but will continue): %+v", err)
+	}
+
+	return err
+}
+
 func GithubCacheOrFetch() (*githubResult, error) {
 	forge := "github"
 
