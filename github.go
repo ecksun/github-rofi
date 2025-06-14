@@ -70,21 +70,19 @@ func graphQlSearch(name string, query string) string {
 func GithubCacheOrFetch() (*githubResult, error) {
 	forge := "github"
 
-	fileinfo, err := os.Stat(pullCache(forge))
+	cacheFile := pullCache(forge)
+	fileinfo, err := os.Stat(cacheFile)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("failed to check file age: %w", err)
+		return nil, fmt.Errorf("failed to check file age of %q: %w", cacheFile, err)
 	}
 	if err == nil && fileinfo.ModTime().Add(180*time.Minute).After(time.Now()) {
-		rawCache, err := os.ReadFile(pullCache(forge))
+		rawCache, err := os.ReadFile(cacheFile)
 		if err != nil {
-			// TODO: Make non-fatal
-			return nil, fmt.Errorf("failed to read github pull cache: %w", err)
+			return nil, fmt.Errorf("failed to read github pull cache %q: %w", cacheFile, err)
 		}
 		var result githubResult
 		if err := json.Unmarshal(rawCache, &result); err != nil {
-			// TODO: Make nonfatal
-			// TODO: Just delete file and continue
-			return nil, fmt.Errorf("failed to parse cache file: %w", err)
+			return nil, fmt.Errorf("failed to parse cache file %q: %w", cacheFile, err)
 		}
 		fmt.Fprintf(os.Stderr, "Read data from cache successfully\n")
 		return &result, nil
