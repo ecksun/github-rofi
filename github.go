@@ -73,7 +73,7 @@ func (f GithubForge) name() string {
 }
 
 func (f GithubForge) list() error {
-	res, err := GithubCacheOrFetch()
+	res, err := f.cachedFetch()
 	if err != nil {
 		return fmt.Errorf("listing github PRs failed: %w", err)
 	}
@@ -106,18 +106,16 @@ func (f GithubForge) refresh() error {
 	return nil
 }
 
-func GithubCacheOrFetch() (*githubResult, error) {
-	forge := "github"
-
-	rawCache, err := readCache(forge)
+func (f GithubForge) cachedFetch() (*githubResult, error) {
+	rawCache, err := readCache(f.name())
 	if err != nil {
-		return nil, fmt.Errorf("failed to read %s cache: %w", forge, err)
+		return nil, fmt.Errorf("failed to read %s cache: %w", f.name(), err)
 	}
 
 	if len(rawCache) != 0 {
 		var result githubResult
 		if err := json.Unmarshal(rawCache, &result); err != nil {
-			return nil, fmt.Errorf("failed to parse %q cache: %w", forge, err)
+			return nil, fmt.Errorf("failed to parse %s cache: %w", f.name(), err)
 		}
 		return &result, nil
 	}
@@ -126,7 +124,7 @@ func GithubCacheOrFetch() (*githubResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch github PRs: %w", err)
 	}
-	if err := writeCache(forge, res); err != nil {
+	if err := writeCache(f.name(), res); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to write github cache (but will continue): %v", err)
 	}
 	return res, nil

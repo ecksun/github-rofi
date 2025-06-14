@@ -18,7 +18,7 @@ func (f GitlabForge) name() string {
 	return "gitlab"
 }
 func (f GitlabForge) list() error {
-	res, err := gitlabCacheOrFetch()
+	res, err := f.cachedFetch()
 	if err != nil {
 		return fmt.Errorf("listing gitlab MRs failed: %w", err)
 	}
@@ -44,18 +44,16 @@ func (f GitlabForge) refresh() error {
 	return nil
 }
 
-func gitlabCacheOrFetch() ([]gitlabMR, error) {
-	forge := "gitlab"
-
-	rawCache, err := readCache(forge)
+func (f GitlabForge) cachedFetch() ([]gitlabMR, error) {
+	rawCache, err := readCache(f.name())
 	if err != nil {
-		return nil, fmt.Errorf("failed to read %s cache: %w", forge, err)
+		return nil, fmt.Errorf("failed to read %s cache: %w", f.name(), err)
 	}
 
 	if len(rawCache) != 0 {
 		var result []gitlabMR
 		if err := json.Unmarshal(rawCache, &result); err != nil {
-			return nil, fmt.Errorf("failed to parse %q cache: %w", forge, err)
+			return nil, fmt.Errorf("failed to parse %s cache: %w", f.name(), err)
 		}
 		return result, nil
 	}
@@ -65,7 +63,7 @@ func gitlabCacheOrFetch() ([]gitlabMR, error) {
 		return res, fmt.Errorf("failed to fetch gitlab MRs: %w", err)
 	}
 
-	if err := writeCache(forge, res); err != nil {
+	if err := writeCache(f.name(), res); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to write gitlab cache (but will continue): %v", err)
 	}
 	return res, err
