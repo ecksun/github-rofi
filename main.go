@@ -14,7 +14,7 @@ func main() {
 
 	switch os.Getenv("ROFI_RETV") {
 	case "": // Called directly
-		cmd := exec.Command("rofi", "-show", "fb", "-modes", "fb: go run ./", "-width", "70", "-theme", "Arc-Dark", "-i")
+		cmd := exec.Command("rofi", "-show", "fb", "-modes", "fb: "+os.Args[0], "-width", "70", "-theme", "Arc-Dark", "-i")
 		if err := cmd.Start(); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to start rofi subprocess: %+v", err)
 			os.Exit(1)
