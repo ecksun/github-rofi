@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path"
+	"time"
 )
 
 func main() {
@@ -66,7 +69,7 @@ func run(forge forge) error {
 	return nil
 }
 
-func pullCache(forge string) string {
+func cachePath(forge string) string {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to find cache directory, falling back to ~/.cache/: %s\n", err)
@@ -77,7 +80,7 @@ func pullCache(forge string) string {
 		}
 		cacheDir = path.Join(homeDir, ".cache")
 	}
-	return path.Join(cacheDir, "gitforge-rofi", fmt.Sprintf("%s-pulls.json", forge))
+	return path.Join(cacheDir, "gitforge-rofi", fmt.Sprintf("%s-changesets.json", forge))
 }
 
 func writeCache(forge string, data any) error {
@@ -86,14 +89,30 @@ func writeCache(forge string, data any) error {
 		return fmt.Errorf("failed to marshal result: %w", err)
 	}
 
-	if err := os.MkdirAll(path.Dir(pullCache(forge)), 0750); err != nil {
+	if err := os.MkdirAll(path.Dir(cachePath(forge)), 0750); err != nil {
 		return fmt.Errorf("failed to create cache dir: %w", err)
 	}
 
-	if err := os.WriteFile(pullCache(forge), b, 0644); err != nil {
+	if err := os.WriteFile(cachePath(forge), b, 0644); err != nil {
 		return fmt.Errorf("failed to write to cache: %w", err)
 	}
 	return nil
+}
+
+func readCache(forge string) ([]byte, error) {
+	cacheFile := cachePath(forge)
+	fileinfo, err := os.Stat(cacheFile)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("failed to check file age of %q: %w", cacheFile, err)
+	}
+	if err == nil && fileinfo.ModTime().Add(180*time.Minute).After(time.Now()) {
+		rawCache, err := os.ReadFile(cacheFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read github pull cache %q: %w", cacheFile, err)
+		}
+		return rawCache, nil
+	}
+	return []byte{}, nil
 }
 
 func configDir() string {

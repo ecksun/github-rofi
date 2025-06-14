@@ -12,7 +12,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"time"
 )
 
 type githubResult struct {
@@ -79,10 +78,6 @@ func (f GithubForge) list() error {
 		return fmt.Errorf("listing github PRs failed: %w", err)
 	}
 
-	if err := writeCache(f.name(), res); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to write cache (but will continue): %+v", err)
-	}
-
 	nodes := []githubResultNode{}
 	nodes = append(nodes, res.Data.Requests.Nodes...)
 	nodes = append(nodes, res.Data.Created.Nodes...)
@@ -101,34 +96,40 @@ func (f GithubForge) list() error {
 
 func (f GithubForge) refresh() error {
 	res, err := GithubFetch()
+	if err != nil {
+		return fmt.Errorf("failed to fetch github PRs: %w", err)
+	}
 	if err := writeCache(f.name(), res); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to write cache (but will continue): %+v", err)
+		return fmt.Errorf("failed to write github cache: %w", err)
 	}
 
-	return err
+	return nil
 }
 
 func GithubCacheOrFetch() (*githubResult, error) {
 	forge := "github"
 
-	cacheFile := pullCache(forge)
-	fileinfo, err := os.Stat(cacheFile)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("failed to check file age of %q: %w", cacheFile, err)
+	rawCache, err := readCache(forge)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s cache: %w", forge, err)
 	}
-	if err == nil && fileinfo.ModTime().Add(180*time.Minute).After(time.Now()) {
-		rawCache, err := os.ReadFile(cacheFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read github pull cache %q: %w", cacheFile, err)
-		}
+
+	if len(rawCache) != 0 {
 		var result githubResult
 		if err := json.Unmarshal(rawCache, &result); err != nil {
-			return nil, fmt.Errorf("failed to parse cache file %q: %w", cacheFile, err)
+			return nil, fmt.Errorf("failed to parse %q cache: %w", forge, err)
 		}
-		fmt.Fprintf(os.Stderr, "Read data from cache successfully\n")
 		return &result, nil
 	}
-	return GithubFetch()
+
+	res, err := GithubFetch()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch github PRs: %w", err)
+	}
+	if err := writeCache(forge, res); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to write github cache (but will continue): %v", err)
+	}
+	return res, nil
 }
 
 func GithubFetch() (*githubResult, error) {
