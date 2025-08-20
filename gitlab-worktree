@@ -3,4 +3,4 @@
 cd "$(dirname "$(readlink "${BASH_SOURCE[0]}")")" || exit 1
 . gitlab-rofi.sh
 
-./worktree.sh github.com "${owner:?}" "${repo:?}" "${branch:?}"
+./worktree.sh gitlab.com "${owner:?}" "${repo:?}" "${branch:?}"
